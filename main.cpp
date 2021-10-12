@@ -7,17 +7,25 @@
 
 using namespace std;
 
+template<typename KEY, typename VALUE>
 class node
 {
-    string key;
-    string value;
+public:
+    KEY _key;
+    VALUE _value;
     node* next;
     node* pre;
-    node(string key_, string value_) : key(key_), value(value_){};
+    node(string key, string value)
+    {
+        _key = key;
+        _value = value;
+        next = nullptr;
+        pre = nullptr;
+    };
     node& operator=(const node& node)
     {
-        key = node.key;
-        value = node.value;
+        _key = node._key;
+        _value = node._value;
         next = node.next;
         pre = node.pre;
         return *this;
@@ -49,7 +57,7 @@ class UnorderedMap
 {
 private:
     //define your data structure here
-    vector<node*> table;
+    node<string, string>** _node;
 
     //define other attributes e.g. bucket count, maximum load factor, size of table, etc.
     unsigned int bucketCount;
@@ -69,16 +77,21 @@ public:
 
     class Iterator
     {
-        vector<list<string, string>> vec;
+          node<string, string>** table;
     public:
         //this constructor does not need to be a default constructor;
         //the parameters for this constructor are up to your discretion.
         //hint: you may need to pass in an UnorderedMap object.
-        Iterator(vector<list<string, string>> vec) {this->vec = vec;}
-        Iterator& operator=(Iterator const& rhs) {
+        Iterator(node<string, string>** table) {this->table = table;}
+
+        Iterator& operator=(Iterator const& rhs)
+        {
 
         }
-        Iterator& operator++() {}
+        Iterator& operator++()
+        {
+
+        }
         bool operator!=(Iterator const& rhs) {}
         bool operator==(Iterator const& rhs) {}
         std::pair<std::string, std::string> operator*() const {}
@@ -90,20 +103,25 @@ UnorderedMap::UnorderedMap(unsigned int bucketCount, double loadFactor)
 {
     this->bucketCount = bucketCount;
     LF = loadFactor;
+    table = new node* [bucketCount];
     for (int i = 0; i < bucketCount; ++i)
-        table.push_back(nullptr);
-
+    {
+        table[i] = nullptr;
+    }
 }
 
 UnorderedMap::~UnorderedMap()
 {
-    for (int i = 0; i < table.size(); ++i)
-        delete table.at(i);
+    for (int i = 0; i < bucketCount; ++i)
+    {
+        delete[] table[i];
+    }
 }
 
 UnorderedMap::Iterator UnorderedMap::begin() const
 {
-    return Iterator();
+    Iterator(this).getFirst();
+
 }
 
 UnorderedMap::Iterator UnorderedMap::end() const
