@@ -7,28 +7,69 @@
 
 using namespace std;
 
-class Node
+class linkList
 {
 public:
-    string key;
-    string name;
-    Node* next;
-    Node* prev;
-    Node(string key, string name)
+    struct Node
     {
-        this->name = name;
-        this->key = key;
-        next = nullptr;
-        prev = nullptr;
+        string key;
+        string name;
+        Node* next;
+        Node(string key, string name)
+        {
+            this->name = name;
+            this->key = key;
+            next = nullptr;
+        };
+        Node& operator=(const Node& node)
+        {
+            this->key = node.key;
+            this->name = node.name;
+            this->next = node.next;
+            return *this;
+        }
     };
-    Node& operator=(const Node& node)
-    {
-        this->key = node.key;
-        this->name = node.name;
-        this->next = node.next;
-        this->prev = node.prev;
-        return *this;
+
+private:
+    Node* head;
+    Node* tail;
+
+public:
+    linkList(){
+        Node* head = nullptr;
+        Node* tail = nullptr;
     }
+
+    ~linkList()
+    {
+        Node* temp;
+        while (head)
+        {
+            temp = head;
+            head = head->next;
+            delete temp;
+        }
+    }
+
+    void setHead(string key, string name)
+    {
+        head = new Node(key, name);
+        tail = head;
+    }
+
+    void addTail(string key, string name)
+    {
+        if (!head)
+            setHead(key, name);
+        else
+        {
+            tail->next = new Node(key, name);
+            tail = tail->next;
+        }
+    }
+
+    Node* getHead() {return head;}
+    Node* getTail() {return tail;}
 };
 
 unsigned int hashFunction(char const* key, int table_size)
@@ -56,7 +97,7 @@ class UnorderedMap
 {
 private:
     //define your data structure here
-    vector<Node*> *bucket;
+    vector<linkList*> *bucket;
     //define other attributes e.g. bucket count, maximum load factor, size of table, etc.
     unsigned int bucketCount;
     double LF;
@@ -75,14 +116,43 @@ public:
 
     class Iterator
     {
-        Node* node;
+        linkList* list;
+        linkList::Node* node;
+        int currentBucket;
+        UnorderedMap* map;
     public:
         //this constructor does not need to be a default constructor;
         //the parameters for this constructor are up to your discretion.
         //hint: you may need to pass in an UnorderedMap object.
-        Iterator(Node* node = nullptr) {this->node = node;}
+        Iterator(linkList* list, UnorderedMap* map = nullptr, int currentBucket = 0)
+        {
+            this->list = list;
+            this->node = list->getHead();
+            this->map = map;
+            this->currentBucket = currentBucket;
+        }
+        Iterator(linkList::Node* node)
+        {
+            this->list = nullptr;
+            this->node = node;
+            this->map = nullptr;
+            this->currentBucket = 0;
+        }
         Iterator& operator=(Iterator const& rhs) {this->node = rhs.node;}
-        Iterator& operator++() {node = node->next; return *this;}
+        Iterator& operator++()
+        {
+            if (node->next != nullptr)
+                node = node->next;
+            else
+            {
+                if (++currentBucket < map->bucketCount)
+                {
+                list = map->bucket->at(currentBucket);
+                node = list->getHead();
+                }
+            }
+            return *this;
+        }
         bool operator!=(Iterator const& rhs) {return rhs.node != this->node;}
         bool operator==(Iterator const& rhs) {return rhs.node == this->node;}
         std::pair<std::string, std::string> operator*() const {return make_pair(node->key, node->name);}
@@ -94,22 +164,13 @@ UnorderedMap::UnorderedMap(unsigned int bucketCount, double loadFactor)
 {
     this->bucketCount = bucketCount;
     LF = loadFactor;
-    bucket = new vector<Node*>(bucketCount);
+    bucket = new vector<linkList*>(bucketCount);
 }
 
 UnorderedMap::~UnorderedMap()
 {
-    Node* temp;
-    for (int i = 0; i < bucket->size(); ++i) {
-        while (bucket->at(i)->next)
-        {
-            temp = bucket->at(i)->next;
-            delete bucket->at(i);
-            bucket->at(i) = temp;
-        }
+    for (int i = 0; i < bucketCount; ++i)
         delete bucket->at(i);
-    }
-    delete bucket;
 }
 
 UnorderedMap::Iterator UnorderedMap::begin() const
@@ -119,10 +180,7 @@ UnorderedMap::Iterator UnorderedMap::begin() const
 
 UnorderedMap::Iterator UnorderedMap::end() const
 {
-    Node* temp = bucket->at(bucketCount - 1);
-    while (temp)
-        temp = temp->next;
-    return Iterator(temp->next);
+    return Iterator(bucket->at(bucketCount - 1)->getTail()->next);
 }
 
 std::string& UnorderedMap::operator[] (std::string const& key)
@@ -132,7 +190,14 @@ std::string& UnorderedMap::operator[] (std::string const& key)
 
 void UnorderedMap::rehash()
 {
-
+    bucketCount *= 2;
+    LF = 0.0;
+    vector<linkList*> *doubleBucket =  new vector<linkList*>(bucketCount);
+    for (UnorderedMap::Iterator it = begin(); it != end(); ++it) /** why it++ not work here **/
+        doubleBucket->at(hashFunction(it.node->key.c_str(), bucketCount))->addTail(it.node->key, it.node->name);
+    vector<linkList*> *temp = bucket;
+    bucket = doubleBucket;
+    delete temp;
 }
 
 void UnorderedMap::remove(std::string const& key)
