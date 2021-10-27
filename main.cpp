@@ -7,27 +7,26 @@
 
 using namespace std;
 
-template<typename KEY, typename VALUE>
-class node
+class Node
 {
 public:
-    KEY _key;
-    VALUE _value;
-    node* next;
-    node* pre;
-    node(string key, string value)
+    string key;
+    string name;
+    Node* next;
+    Node* prev;
+    Node(string key, string name)
     {
-        _key = key;
-        _value = value;
+        this->name = name;
+        this->key = key;
         next = nullptr;
-        pre = nullptr;
+        prev = nullptr;
     };
-    node& operator=(const node& node)
+    Node& operator=(const Node& node)
     {
-        _key = node._key;
-        _value = node._value;
-        next = node.next;
-        pre = node.pre;
+        this->key = node.key;
+        this->name = node.name;
+        this->next = node.next;
+        this->prev = node.prev;
         return *this;
     }
 };
@@ -35,7 +34,7 @@ public:
 unsigned int hashFunction(char const* key, int table_size)
 {
     int b;
-    int count = strlen(key);
+    int count = table_size;
     unsigned int hashCode = 0;
     for (int i = 0; i < count; i++)
     {
@@ -57,8 +56,7 @@ class UnorderedMap
 {
 private:
     //define your data structure here
-    node<string, string>** _node;
-
+    vector<Node*> *bucket;
     //define other attributes e.g. bucket count, maximum load factor, size of table, etc.
     unsigned int bucketCount;
     double LF;
@@ -77,24 +75,17 @@ public:
 
     class Iterator
     {
-          node<string, string>** table;
+        Node* node;
     public:
         //this constructor does not need to be a default constructor;
         //the parameters for this constructor are up to your discretion.
         //hint: you may need to pass in an UnorderedMap object.
-        Iterator(node<string, string>** table) {this->table = table;}
-
-        Iterator& operator=(Iterator const& rhs)
-        {
-
-        }
-        Iterator& operator++()
-        {
-
-        }
-        bool operator!=(Iterator const& rhs) {}
-        bool operator==(Iterator const& rhs) {}
-        std::pair<std::string, std::string> operator*() const {}
+        Iterator(Node* node = nullptr) {this->node = node;}
+        Iterator& operator=(Iterator const& rhs) {this->node = rhs.node;}
+        Iterator& operator++() {node = node->next; return *this;}
+        bool operator!=(Iterator const& rhs) {return rhs.node != this->node;}
+        bool operator==(Iterator const& rhs) {return rhs.node == this->node;}
+        std::pair<std::string, std::string> operator*() const {return make_pair(node->key, node->name);}
         friend class UnorderedMap;
     };
 };
@@ -103,30 +94,35 @@ UnorderedMap::UnorderedMap(unsigned int bucketCount, double loadFactor)
 {
     this->bucketCount = bucketCount;
     LF = loadFactor;
-    table = new node* [bucketCount];
-    for (int i = 0; i < bucketCount; ++i)
-    {
-        table[i] = nullptr;
-    }
+    bucket = new vector<Node*>(bucketCount);
 }
 
 UnorderedMap::~UnorderedMap()
 {
-    for (int i = 0; i < bucketCount; ++i)
-    {
-        delete[] table[i];
+    Node* temp;
+    for (int i = 0; i < bucket->size(); ++i) {
+        while (bucket->at(i)->next)
+        {
+            temp = bucket->at(i)->next;
+            delete bucket->at(i);
+            bucket->at(i) = temp;
+        }
+        delete bucket->at(i);
     }
+    delete bucket;
 }
 
 UnorderedMap::Iterator UnorderedMap::begin() const
 {
-    Iterator(this).getFirst();
-
+    return Iterator(bucket->at(0));
 }
 
 UnorderedMap::Iterator UnorderedMap::end() const
 {
-
+    Node* temp = bucket->at(bucketCount - 1);
+    while (temp)
+        temp = temp->next;
+    return Iterator(temp->next);
 }
 
 std::string& UnorderedMap::operator[] (std::string const& key)
