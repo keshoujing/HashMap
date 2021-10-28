@@ -7,75 +7,94 @@
 
 using namespace std;
 
-class linkList
-{
+class linkList {
 public:
-    struct Node
-    {
+    struct Node {
         string key;
         string name;
-        Node* next;
-        Node(string key, string name)
-        {
+        Node *next;
+        Node *prev;
+
+        Node(string key, string name) {
             this->name = name;
             this->key = key;
+            prev = nullptr;
             next = nullptr;
         };
-        Node& operator=(const Node& node)
-        {
+
+        Node &operator=(const Node &node) {
             this->key = node.key;
             this->name = node.name;
             this->next = node.next;
+            this->prev = node.prev;
             return *this;
         }
     };
 
 private:
-    Node* head;
-    Node* tail;
+    Node *head;
+    Node *tail;
+    int listSize;
 
 public:
-    linkList(){
-        Node* head = nullptr;
-        Node* tail = nullptr;
+    linkList() {
+        head = nullptr;
+        tail = nullptr;
+        listSize = 0;
     }
 
-    ~linkList()
-    {
-        Node* temp;
-        while (head)
-        {
+    ~linkList() {
+        Node *temp;
+        while (head) {
             temp = head;
             head = head->next;
             delete temp;
         }
     }
 
-    void setHead(string key, string name)
-    {
+    void setHead(string key, string name) {
         head = new Node(key, name);
+        listSize++;
         tail = head;
     }
 
-    void addTail(string key, string name)
-    {
+    void addTail(string key, string name) {
         if (!head)
             setHead(key, name);
-        else
-        {
+        else {
+            Node* temp = tail;
             tail->next = new Node(key, name);
             tail = tail->next;
+            tail->prev = temp;
+            listSize++;
         }
+    }
+
+    Node *findNode(string key)
+    {
+        Node* temp = head;
+        while (temp && temp->key != key)
+            temp = temp->next;
+        return temp? : nullptr;
+    }
+
+    void deleteNode(string key)
+    {
+        Node* node = findNode(key);
+        node->prev->next = node->next;
+        node->next->prev = node->prev;
+        delete node;
     }
 
     Node* getHead() {return head;}
     Node* getTail() {return tail;}
+    int getSize() {return listSize;}
 };
 
 unsigned int hashFunction(char const* key, int table_size)
 {
     int b;
-    int count = table_size;
+    int count = strlen(key);
     unsigned int hashCode = 0;
     for (int i = 0; i < count; i++)
     {
@@ -90,7 +109,7 @@ unsigned int hashFunction(char const* key, int table_size)
         hashCode = hashCode ^ b;
     }
     hashCode = hashCode | (1 << 32);
-    return hashCode;
+    return hashCode % table_size;
 }
 
 class UnorderedMap
@@ -119,17 +138,17 @@ public:
         linkList* list;
         linkList::Node* node;
         int currentBucket;
-        UnorderedMap* map;
+        const UnorderedMap* map;
     public:
         //this constructor does not need to be a default constructor;
         //the parameters for this constructor are up to your discretion.
         //hint: you may need to pass in an UnorderedMap object.
-        Iterator(linkList* list, UnorderedMap* map = nullptr, int currentBucket = 0)
+        Iterator(linkList* list, const UnorderedMap* map)
         {
             this->list = list;
             this->node = list->getHead();
             this->map = map;
-            this->currentBucket = currentBucket;
+            this->currentBucket = 0;
         }
         Iterator(linkList::Node* node)
         {
@@ -141,15 +160,13 @@ public:
         Iterator& operator=(Iterator const& rhs) {this->node = rhs.node;}
         Iterator& operator++()
         {
-            if (node->next != nullptr)
+            if (node != nullptr)
                 node = node->next;
-            else
+
+            while (!node && ++currentBucket < map->bucket->size())
             {
-                if (++currentBucket < map->bucketCount)
-                {
                 list = map->bucket->at(currentBucket);
                 node = list->getHead();
-                }
             }
             return *this;
         }
@@ -164,35 +181,47 @@ UnorderedMap::UnorderedMap(unsigned int bucketCount, double loadFactor)
 {
     this->bucketCount = bucketCount;
     LF = loadFactor;
-    bucket = new vector<linkList*>(bucketCount);
+                                                                    /** why this one is not working **/
+//    bucket = new vector<linkList*>(bucketCount, new linkList());
+    bucket = new vector<linkList*>;
+    for (int i = 0; i < bucketCount; ++i)
+        bucket->push_back(new linkList());
 }
 
 UnorderedMap::~UnorderedMap()
 {
-    for (int i = 0; i < bucketCount; ++i)
-        delete bucket->at(i);
+        delete[] bucket;
 }
 
 UnorderedMap::Iterator UnorderedMap::begin() const
 {
-    return Iterator(bucket->at(0));
+    return Iterator(bucket->at(0), this); /** why just add const in the parameter, everything works fine? important question! **/
 }
 
 UnorderedMap::Iterator UnorderedMap::end() const
 {
-    return Iterator(bucket->at(bucketCount - 1)->getTail()->next);
+    return Iterator(bucket->at(bucket->size() - 1)->getTail()->next);
 }
 
 std::string& UnorderedMap::operator[] (std::string const& key)
 {
+    linkList* list = bucket->at(hashFunction(key.c_str(), bucketCount));
+    linkList::Node* node = list->findNode(key);
+    if (node)
+        return node->name;
 
+    list->addTail(key, "");
+    if ((double)list->getSize() / bucketCount > LF)
+        rehash();
+    return list->findNode(key)->name;
 }
 
 void UnorderedMap::rehash()
 {
     bucketCount *= 2;
-    LF = 0.0;
-    vector<linkList*> *doubleBucket =  new vector<linkList*>(bucketCount);
+    vector<linkList*> *doubleBucket =  new vector<linkList*>();
+    for (int i = 0; i < bucketCount; ++i)
+        doubleBucket->push_back(new linkList());
     for (UnorderedMap::Iterator it = begin(); it != end(); ++it) /** why it++ not work here **/
         doubleBucket->at(hashFunction(it.node->key.c_str(), bucketCount))->addTail(it.node->key, it.node->name);
     vector<linkList*> *temp = bucket;
@@ -202,17 +231,21 @@ void UnorderedMap::rehash()
 
 void UnorderedMap::remove(std::string const& key)
 {
-
+    linkList* list = bucket->at(hashFunction(key.c_str(), bucketCount));
+    list->deleteNode(key);
 }
 
 unsigned int UnorderedMap::size()
 {
-
+    int count = 0;
+    for (int i = 0; i < bucketCount; i++)
+        count += bucket->at(i)->getSize();
+    return count;
 }
 
 double UnorderedMap::loadFactor()
 {
-
+    return LF;
 }
 
 //implement other operators in Iterator class
