@@ -3,7 +3,6 @@
 #include <vector>
 #include <iomanip>
 #include <cstring>
-#include <list>
 
 using namespace std;
 
@@ -81,9 +80,25 @@ public:
     void deleteNode(string key)
     {
         Node* node = findNode(key);
-        node->prev->next = node->next;
-        node->next->prev = node->prev;
+        if (head->next || tail->prev)
+        {
+            if (node == head)
+            {
+                head = head->next;
+                head->prev = nullptr;
+            }else if(node == tail)
+            {
+                tail = tail->prev;
+                tail->next = nullptr;
+            } else
+            {
+                node->prev->next = node->next;
+                node->next->prev = node->prev;
+            }
+        }
         delete node;
+        node = NULL;
+        this->listSize--;
     }
 
     Node* getHead() {return head;}
@@ -120,6 +135,7 @@ private:
     //define other attributes e.g. bucket count, maximum load factor, size of table, etc.
     unsigned int bucketCount;
     double LF;
+    double currLF;
 
 public:
     class Iterator;
@@ -181,6 +197,7 @@ UnorderedMap::UnorderedMap(unsigned int bucketCount, double loadFactor)
 {
     this->bucketCount = bucketCount;
     LF = loadFactor;
+    currLF = 0.0;
                                                                     /** why this one is not working **/
 //    bucket = new vector<linkList*>(bucketCount, new linkList());
     bucket = new vector<linkList*>;
@@ -190,7 +207,8 @@ UnorderedMap::UnorderedMap(unsigned int bucketCount, double loadFactor)
 
 UnorderedMap::~UnorderedMap()
 {
-        delete[] bucket;
+        for(int i = 0; i < bucket->size(); i++)
+            delete bucket->at(i);
 }
 
 UnorderedMap::Iterator UnorderedMap::begin() const
@@ -211,7 +229,8 @@ std::string& UnorderedMap::operator[] (std::string const& key)
         return node->name;
 
     list->addTail(key, "");
-    if ((double)list->getSize() / bucketCount > LF)
+    currLF = (double)size() / bucketCount;
+    if (currLF >= LF)
         rehash();
     return list->findNode(key)->name;
 }
@@ -227,6 +246,7 @@ void UnorderedMap::rehash()
     vector<linkList*> *temp = bucket;
     bucket = doubleBucket;
     delete temp;
+    currLF = (double)size() / bucketCount;
 }
 
 void UnorderedMap::remove(std::string const& key)
@@ -245,7 +265,7 @@ unsigned int UnorderedMap::size()
 
 double UnorderedMap::loadFactor()
 {
-    return LF;
+    return currLF;
 }
 
 //implement other operators in Iterator class
