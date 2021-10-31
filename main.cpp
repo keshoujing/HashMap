@@ -97,6 +97,8 @@ public:
             }
         }
         delete node;
+        if (head == node) head = nullptr;
+        if (tail == node) tail = nullptr;
         node = NULL;
         this->listSize--;
     }
@@ -159,12 +161,12 @@ public:
         //this constructor does not need to be a default constructor;
         //the parameters for this constructor are up to your discretion.
         //hint: you may need to pass in an UnorderedMap object.
-        Iterator(linkList* list, const UnorderedMap* map)
+        Iterator(int currentBucket, const UnorderedMap* map)
         {
-            this->list = list;
+            this->list = map->bucket->at(currentBucket);
             this->node = list->getHead();
             this->map = map;
-            this->currentBucket = 0;
+            this->currentBucket = currentBucket;
         }
         Iterator(linkList::Node* node)
         {
@@ -176,7 +178,7 @@ public:
         Iterator& operator=(Iterator const& rhs) {this->node = rhs.node;}
         Iterator& operator++()
         {
-            if (node != nullptr)
+            if (node)
                 node = node->next;
 
             while (!node && ++currentBucket < map->bucket->size())
@@ -198,7 +200,7 @@ UnorderedMap::UnorderedMap(unsigned int bucketCount, double loadFactor)
     this->bucketCount = bucketCount;
     LF = loadFactor;
     currLF = 0.0;
-                                                                    /** why this one is not working **/
+    /** why this one is not working **/
 //    bucket = new vector<linkList*>(bucketCount, new linkList());
     bucket = new vector<linkList*>;
     for (int i = 0; i < bucketCount; ++i)
@@ -207,18 +209,23 @@ UnorderedMap::UnorderedMap(unsigned int bucketCount, double loadFactor)
 
 UnorderedMap::~UnorderedMap()
 {
-        for(int i = 0; i < bucket->size(); i++)
-            delete bucket->at(i);
+    for(int i = 0; i < bucket->size(); i++)
+        delete bucket->at(i);
+    delete bucket;
 }
 
 UnorderedMap::Iterator UnorderedMap::begin() const
 {
-    return Iterator(bucket->at(0), this); /** why just add const in the parameter, everything works fine? important question! **/
+    int i = 0;
+    while(bucket->at(i)->getSize() == 0 && i < bucket->size()) i++;
+    return Iterator(i, this); /** why just add const in the parameter, everything works fine? important question! **/
 }
 
 UnorderedMap::Iterator UnorderedMap::end() const
 {
-    return Iterator(bucket->at(bucket->size() - 1)->getTail()->next);
+    linkList::Node* node = bucket->at(bucket->size() - 1)->getTail();
+    if (node) node = node->next;
+    return Iterator(node);
 }
 
 std::string& UnorderedMap::operator[] (std::string const& key)
@@ -230,22 +237,24 @@ std::string& UnorderedMap::operator[] (std::string const& key)
 
     list->addTail(key, "");
     currLF = (double)size() / bucketCount;
-    if (currLF >= LF)
-        rehash();
+    if (currLF >= LF) rehash();
     return list->findNode(key)->name;
 }
 
 void UnorderedMap::rehash()
 {
     bucketCount *= 2;
-    vector<linkList*> *doubleBucket =  new vector<linkList*>();
+    vector<linkList*> *doubleBucket =  new vector<linkList*>;
     for (int i = 0; i < bucketCount; ++i)
         doubleBucket->push_back(new linkList());
-    for (UnorderedMap::Iterator it = begin(); it != end(); ++it) /** why it++ not work here **/
+    UnorderedMap::Iterator e = end();
+    for (UnorderedMap::Iterator it = begin(); it != e; ++it) /** why it++ not work here **/
         doubleBucket->at(hashFunction(it.node->key.c_str(), bucketCount))->addTail(it.node->key, it.node->name);
     vector<linkList*> *temp = bucket;
     bucket = doubleBucket;
+
     delete temp;
+
     currLF = (double)size() / bucketCount;
 }
 
@@ -253,6 +262,7 @@ void UnorderedMap::remove(std::string const& key)
 {
     linkList* list = bucket->at(hashFunction(key.c_str(), bucketCount));
     list->deleteNode(key);
+    currLF = (double)size() / bucketCount;
 }
 
 unsigned int UnorderedMap::size()
