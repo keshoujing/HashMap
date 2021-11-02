@@ -6,144 +6,102 @@
 
 using namespace std;
 
-/** linklist class **/
-class linkList {
-public:
-    /** node class **/
-    struct Node {
-        string key;
-        string name;
-        Node *next;
-        Node *prev;
-
-        ///constructor for node
-        Node(string key, string name) {
-            this->name = name;
-            this->key = key;
-            prev = nullptr;
-            next = nullptr;
-        };
-
-        ///operator override
-        Node &operator=(const Node &node) {
-            this->key = node.key;
-            this->name = node.name;
-            this->next = node.next;
-            this->prev = node.prev;
-            return *this;
-        }
-    };
-
-private:
-    Node *head;
-    Node *tail;
-    int listSize;
-
-public:
-    ///constructor for linklist
-    linkList() {
-        head = nullptr;
-        tail = nullptr;
-        listSize = 0;
-    }
-
-    ///destructor for linklist
-    ~linkList() {
-        Node *temp;
-        while (head) {
-            temp = head;
-            head = head->next;
-            delete temp;
-        }
-    }
-
-    void setHead(string key, string name) {
-        head = new Node(key, name);
-        listSize++;
-        tail = head;
-    }
-
-    void addTail(string key, string name) {
-        if (!head) ///if head is not exist, set head first.
-            setHead(key, name);
-        else {
-            Node* temp = tail;
-            tail->next = new Node(key, name);
-            tail = tail->next;
-            tail->prev = temp;
-            listSize++;
-        }
-    }
-
-    Node *findNode(string key)
-    {
-        Node* temp = head;
-        while (temp && temp->key != key)
-            temp = temp->next;
-        return temp? : nullptr;
-    }
-
-    void deleteNode(string key)
-    {
-        Node* node = findNode(key); ///find the node needs to be deleted.
-        if (head->next || tail->prev) ///first confirm that the head and prev have node next or pre.
-        {
-            if (node == head) ///if head == node, just need to move head to next and delete original head.
-            {
-                head = head->next;
-                head->prev = nullptr;
-            }else if(node == tail) ///if node == tail, just need to move tail to prev node and delete original tail.
-            {
-                tail = tail->prev;
-                tail->next = nullptr;
-            } else ///node != head or node != tail, the node is between them.
-            {
-                node->prev->next = node->next;
-                node->next->prev = node->prev;
-            }
-        }
-        delete node;
-        if (head == node) head = nullptr; ///this case is for if the node is only node in the linklist, so just need to set head and tail to nullptr.
-        if (tail == node) tail = nullptr;
-        node = NULL; ///make sure node is nullptr, that is important, set to null just in case.
-        this->listSize--;
-    }
-
-    Node* getHead() {return head;}
-    Node* getTail() {return tail;}
-    int getSize() {return listSize;}
-};
-
 unsigned int hashFunction(char const* key, int table_size)
 {
-    int b;
-    int count = strlen(key);
+    int b = 0, count = 0;
     unsigned int hashCode = 0;
-    for (int i = 0; i < count; i++)
-    {
-        if (i % 2 == 0) //even case
-        {
-            b = (hashCode << 7) ^ key[i] ^ (hashCode >> 3);
-        } else //odd case
-        {
-            b = (hashCode << 11) ^ key[i] ^ (hashCode >> 5);
+    for (char c = *key; c; c =* ++key){
+        if (count % 2 == 0){
+            b=(hashCode << 7) ^ c ^ (hashCode >> 3);
+        }
+        else{
+            b = (hashCode << 11) ^ c ^ (hashCode >> 5);
             b = ~b;
         }
         hashCode = hashCode ^ b;
+        count++;
     }
     hashCode = hashCode | (1 << 32);
     return hashCode % table_size;
 }
+
+/** node class **/
+struct Node {
+    string key;
+    string name;
+    Node *next;
+
+    ///constructor for node
+    Node()
+    {
+        this->name = "";
+        this->key = "";
+        next = nullptr;
+    }
+
+    Node(string key, string name) {
+        this->name = name;
+        this->key = key;
+        next = nullptr;
+    };
+
+    ///operator override
+    Node &operator=(const Node &node) {
+        this->key = node.key;
+        this->name = node.name;
+        this->next = node.next;
+        return *this;
+    }
+};
+
+void addNode(string key, string name, Node*& node) {     ///node means head node inside vector.
+    if (node->key == "") ///if head is not exist, set head first.
+    {
+        node->key = key;
+        node->name = name;
+    }else
+    {
+        Node* newNode = new Node(key, name);
+        newNode->next = node;
+        node = newNode;
+    }
+}
+ Node* findNode(string key, Node* node) ///node means head node inside vector.
+ {
+    while(node && node->key != "")
+    {
+        if (node->key == key)
+            return node;
+        node = node->next;
+    }
+     return nullptr;
+ }
+
+ void deleteNode(string key, Node*& firstNode) ///firstNode means head node inside vector.
+ {
+    Node* node = findNode(key, firstNode); ///find the node needs to be deleted.
+    if (node) ///first confirm that the node is exists
+    {
+        node->key = firstNode->key;
+        node->name = firstNode->name;
+        Node* temp = firstNode;
+        firstNode = firstNode->next;
+        delete temp;
+    }
+ }
+
+
 /** map class **/
 class UnorderedMap
 {
 private:
     //define your data structure here
-    vector<linkList*> *bucket; /// bucket structure
+    vector<Node*> bucket; /// bucket structure
     //define other attributes e.g. bucket count, maximum load factor, size of table, etc.
     unsigned int bucketCount;
     double LF;
     double currLF;
+    int currentSize;
 
 public:
     class Iterator;
@@ -160,8 +118,7 @@ public:
     /** iterator calss **/
     class Iterator
     {
-        linkList* list;
-        linkList::Node* node;
+        Node* node;
         int currentBucket;
         const UnorderedMap* map;
     public:
@@ -170,29 +127,29 @@ public:
         //hint: you may need to pass in an UnorderedMap object.
         Iterator(int currentBucket, const UnorderedMap* map) ///constructor
         {
-            this->list = map->bucket->at(currentBucket);
-            this->node = list->getHead();
+            this->node = map->bucket[currentBucket];
             this->map = map;
             this->currentBucket = currentBucket;
         }
-        Iterator(linkList::Node* node) ///constructor
+        Iterator(Node* node) ///constructor
         {
-            this->list = nullptr;
             this->node = node;
             this->map = nullptr;
             this->currentBucket = 0;
         }
-        Iterator& operator=(Iterator const& rhs) {this->node = rhs.node;}
+        Iterator& operator=(Iterator const& rhs){
+            this->node->key = rhs.node->key;
+            this->node->name = rhs.node->name;
+            this->node->next = rhs.node->next;
+            this->currentBucket = rhs.currentBucket;
+        }
         Iterator& operator++()
         {
-            if (node) ///if node exist, just point to node's next.
+            if (node->key != "")
                 node = node->next;
 
-            while (!node && ++currentBucket < map->bucket->size()) ///if the node is nullptr, just need to find next valid node in the bucket.
-            {
-                list = map->bucket->at(currentBucket);
-                node = list->getHead(); /// if head exist, that node is valid, end loop.
-            }
+            while ((!node || node->key == "") && ++currentBucket < map->bucket.size())
+                node = map->bucket.at(currentBucket);
             return *this;
         }
         bool operator!=(Iterator const& rhs) {return rhs.node != this->node;}
@@ -207,75 +164,82 @@ UnorderedMap::UnorderedMap(unsigned int bucketCount, double loadFactor) ///const
     this->bucketCount = bucketCount;
     LF = loadFactor;
     currLF = 0.0;
+    currentSize = 0;
     /** why this one is not working **/
-//    bucket = new vector<linkList*>(bucketCount, new linkList());
-    bucket = new vector<linkList*>; ///this might skip, the bucket don't need use new key word.
+//    vector<Node*> bucket(bucketCount, new Node());
     for (int i = 0; i < bucketCount; ++i) ///push a linklist object to the bucket.
-        bucket->push_back(new linkList());
+        bucket.push_back(new Node());
 }
 
 UnorderedMap::~UnorderedMap() ///destructor
 {
-    for(int i = 0; i < bucket->size(); i++)
-        delete bucket->at(i);
-    delete bucket;
+    for(int i = 0; i < bucket.size(); i++)
+    {
+        while (bucket[i])
+        {
+            Node* temp = bucket[i];
+            bucket[i] = bucket[i]->next;
+            delete temp;
+        }
+    }
 }
 
 UnorderedMap::Iterator UnorderedMap::begin() const ///find the first node that valid.
 {
     int i = 0;
-    while(bucket->at(i)->getSize() == 0 && i < bucket->size()) i++;
+    while(bucket.at(i)->key == "" && i < bucket.size()) i++;
     return Iterator(i, this); /** why just add const in the parameter, everything works fine? important question! **/
 }
 
 UnorderedMap::Iterator UnorderedMap::end() const ///find the last bucket's last node's next.
 {
-    linkList::Node* node = bucket->at(bucket->size() - 1)->getTail();
-    if (node) node = node->next;
+    Node* node = bucket.at(bucket.size() - 1);
+    while (node && node->key != "") node = node->next;
     return Iterator(node);
 }
 
 std::string& UnorderedMap::operator[] (std::string const& key) ///add if key not exist, or view the key's data.
 {
-    linkList* list = bucket->at(hashFunction(key.c_str(), bucketCount)); /// use hash function to find the a match linklist inside of bucket.
-    linkList::Node* node = list->findNode(key); ///find the node from the linklist.
-    if (node) ///if node exist, just return the data.
-        return node->name;
+    Node* node = bucket[hashFunction(key.c_str(), bucketCount)];
+    Node* temp = findNode(key, node);
+    if (temp) return temp->name;
 
-    list->addTail(key, ""); ///if not exist, add the tail to the linklist.
-    currLF = (double)size() / bucketCount; ///renew current load factor.
-    if (currLF >= LF) rehash(); ///check if need rehash.
-    return list->findNode(key)->name; ///return the node
+    if (node->key == "") node->key = key;
+    else addNode(key, "", node);
+
+    currentSize++;
+    currLF = (double)currentSize / bucketCount;
+    if (currLF >= LF) rehash();
+    return node->name;
 }
 
 void UnorderedMap::rehash()
 {
-    bucketCount *= 2; ///double the bucket
-    vector<linkList*> *doubleBucket =  new vector<linkList*>; ///might skip this, don't need to use new key work.
+    bucketCount *= 2;
+    vector<Node*> doubleBucket;
     for (int i = 0; i < bucketCount; ++i)
-        doubleBucket->push_back(new linkList());
+        doubleBucket.push_back(new Node());
     UnorderedMap::Iterator e = end();
-    for (UnorderedMap::Iterator it = begin(); it != e; ++it) /** why it++ not work here **/
-        doubleBucket->at(hashFunction(it.node->key.c_str(), bucketCount))->addTail(it.node->key, it.node->name);
-    vector<linkList*> *temp = bucket;
+    for (auto it = begin(); it != e; ++it) {
+        int index = hashFunction(it.node->key.c_str(), bucketCount);
+        Node* node = doubleBucket.at(index);
+        addNode(it.node->key, it.node->name, node);
+    }
     bucket = doubleBucket;
-    delete temp;
-    currLF = (double)size() / bucketCount; ///renew current load factor.
+
+    currLF = (double)size() / bucketCount;
 }
 
 void UnorderedMap::remove(std::string const& key)
 {
-    linkList* list = bucket->at(hashFunction(key.c_str(), bucketCount)); ///use hash function to find the list.
-    list->deleteNode(key); ///delete the node inside the list.
-    currLF = (double)size() / bucketCount; ///renew current load factor.
+    deleteNode(key, bucket[hashFunction(key.c_str(), bucketCount)]);///delete the node inside the list.
+    currentSize--;
+    currLF = (double)currentSize / bucketCount; ///renew current load factor.
 }
 
 unsigned int UnorderedMap::size()
 {
-    int count = 0;
-    for (int i = 0; i < bucketCount; i++)
-        count += bucket->at(i)->getSize(); ///get size
-    return count;
+    return currentSize;
 }
 
 double UnorderedMap::loadFactor()
