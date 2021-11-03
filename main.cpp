@@ -144,10 +144,10 @@ public:
         }
         Iterator& operator++()
         {
-            if (node->key != "")
-                node = node->next;
+            if (node->key != "") ///if the head point is valid, see if there if a value node in the next.
+                node = node->next; 
 
-            while ((!node || node->key == "") && ++currentBucket < map->bucket.size())
+            while ((!node || node->key == "") && ++currentBucket < map->bucket.size()) ///if not a valid node, find next valid node.
                 node = map->bucket.at(currentBucket);
             return *this;
         }
@@ -199,32 +199,32 @@ UnorderedMap::Iterator UnorderedMap::end() const ///find the last bucket's last 
 
 std::string& UnorderedMap::operator[] (std::string const& key) ///add if key not exist, or view the key's data.
 {
-    Node* node = bucket[hashFunction(key.c_str(), bucketCount)];
+    Node* node = bucket[hashFunction(key.c_str(), bucketCount)]; ///find the head node of bucket.
     Node* temp = findNode(key, node);
-    if (temp) return temp->name;
+    if (temp) return temp->name; ///if the node is exist, return the node's value.
 
-    if (node->key == "") node->key = key;
-    else addNode(key, "", node);
+    if (node->key == "") node->key = key; ///check if the head node is empty.
+    else addNode(key, "", node); ///add node.
 
     currentSize++;
-    currLF = (double)currentSize / bucketCount;
-    if (currLF >= LF) rehash();
+    currLF = (double)currentSize / bucketCount; ///calculate current load factor.
+    if (currLF >= LF) rehash(); ///check if it needs rehash.
     return node->name;
 }
 
 void UnorderedMap::rehash()
 {
     bucketCount *= 2;
-    vector<Node*> doubleBucket;
+    vector<Node*> doubleBucket; ///create new bucket.
     for (int i = 0; i < bucketCount; ++i)
         doubleBucket.push_back(new Node());
     UnorderedMap::Iterator e = end();
-    for (auto it = begin(); it != e; ++it) {
+    for (auto it = begin(); it != e; ++it) { ///insert all node to new bucket.
         int index = hashFunction(it.node->key.c_str(), bucketCount);
         Node* node = doubleBucket.at(index);
         addNode(it.node->key, it.node->name, node);
     }
-    bucket = doubleBucket;
+    bucket = doubleBucket; ///copy the new bucket to current bucket
 
     currLF = (double)size() / bucketCount;
 }
